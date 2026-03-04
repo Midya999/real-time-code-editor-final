@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node BACKEND/index.js",
     "dev": "nodemon BACKEND/index.js",
-    "build": "cd FRONTEND && npm install && npm run build"
+    "build": "npm install && cd FRONTEND && npm install && npm run build"
   },
   "keywords": [],
   "author": "",
