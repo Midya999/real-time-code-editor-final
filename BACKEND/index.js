@@ -2,16 +2,38 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import axios from 'axios';
 
 const app = express();
 const server = http.createServer(app);
+const url = "https://realtime-code-editor-sxu5.onrender.com";
+const interval = 30000;
+
+function reloadWebsite() {
+  axios
+    .get(url)
+    .then(() => {
+      console.log("Website reloaded");
+    })
+    .catch((error) => {
+      console.error(`Error: ${error.message}`);
+    });
+}
+// Call the function every 30 seconds
+setInterval(reloadWebsite, interval);
+
 const io = new Server(server, {
     cors: {
         origin: "*",
     }
 });
 const rooms = new Map();
-
+const languageMap = {
+  javascript: 63,
+  python: 71,
+  java: 62,
+  cpp: 54,
+};
 
 
 io.on('connection', (socket) => {
@@ -62,7 +84,35 @@ io.on('connection', (socket) => {
     socket.on("languageChange", ({roomId,language}) => {
         io.to(roomId).emit("languageUpdated", language);
     });
+  socket.on("compileCode", async ({ code, roomId, language }) => {
+    try {
+      if (!rooms.has(roomId)) return;
 
+      const languageId = languageMap[language];
+
+      const response = await axios.post(
+        "https://ce.judge0.com/submissions?base64_encoded=false&wait=true",
+        {
+          source_code: code,
+          language_id: languageId,
+        }
+      );
+
+      const output =
+        response.data.stdout ||
+        response.data.stderr ||
+        response.data.compile_output ||
+        "No output";
+
+      io.to(roomId).emit("codeResponse", {
+        run: { output },
+      });
+    } catch (error) {
+      io.to(roomId).emit("codeResponse", {
+        run: { output: "Execution error" },
+      });
+    }
+  });
 
     socket.on('disconnect', () => {
         if (currentRoom && currentUser) { 
